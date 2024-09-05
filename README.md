@@ -1,20 +1,29 @@
-# Hands-on Clikt
+# Kotlin AFIS CLI
 
-Demo repository for building a CLI with Kotlin, Clikt and GraalVM.
+CLI application based on SourceAFIS for comparing fingerprint templates.
 
 ## GraalVM installation
 
-I used Jabba as a JVM manager to install GraalVM on my machine. Once this is
-done, make sure to install the `native-image` utility using the Graal updater.
+You can use Jabba as a JVM manager to install GraalVM on my machine, or download
+a more recent version from Oracle. 
 
 ```
 # use Jabba to install GraalVM
-$ jabba remote-ls
-$ jabba install graalvm-ce-java8@20.3.0
-$ jabba use graalvm-ce-java8@20.3.0
+$ jabba ls-remote | grep graalvm | grep 21
+$ jabba install graalvm@21.1.0
+```
 
-$ export GRAALVM_HOME=$JAVA_HOME
+Add to `.envrc` and run `direnv allow` to set the environment variables:
+```
+source ~/.jabba/jabba.sh
+export JABBA_VM=graalvm@21.1.0
+export JAVA_HOME=$(jabba which $JABBA_VM)/Contents/Home
+export PATH=$JAVA_HOME/bin:$PATH
+export GRAALVM_HOME=$JAVA_HOME
+```
 
+Install the `native-image` utility using the Graal updater.
+```
 $ gu available
 $ gu install native-image
 ```
@@ -33,7 +42,7 @@ $ ./hands-on-clikt --help
 
 ## Maintainer
 
-M.-Leander Reimer (@lreimer), <mario-leander.reimer@qaware.de>
+Caktus Consulting Group, LLC
 
 ## License
 
