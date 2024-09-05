@@ -56,9 +56,9 @@ $ ./gradlew build
 $ ./gradlew buildNativeImage
 
 $ cd build/
-$ ./hands-on-clikt
-$ ./hands-on-clikt --name Leander --count 3
-$ ./hands-on-clikt --help
+$ ./kafis
+$ ./kafis --name Leander --count 3
+$ ./kafis --help
 ```
 
 ## Maintainer

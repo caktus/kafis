@@ -18,7 +18,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("hands.on.clikt.AppKt")
+    mainClass.set("com.smartelect.AppKt")
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
@@ -57,7 +57,7 @@ task<Exec>("buildNativeImage") {
         "--no-fallback",
         "--enable-http",
         "--enable-https",
-        "hands.on.clikt.AppKt",
-        "hands-on-clikt"
+        "com.smartelect.AppKt",
+        "kafis"
     )
 }

@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
-task="hands-on-clikt"
+task="kafis"
 ./gradlew --quiet "installDist" && "./build/install/${task}/bin/${task}" "$@"

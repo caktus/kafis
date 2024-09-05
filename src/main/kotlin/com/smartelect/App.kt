@@ -1,4 +1,4 @@
-package hands.on.clikt
+package com.smartelect
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.default

@@ -1,4 +1,4 @@
-package hands.on.clikt
+package com.smartelect
 
 import kotlin.test.Test
 import kotlin.test.assertNotNull
