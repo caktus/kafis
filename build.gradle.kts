@@ -12,6 +12,9 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 
     implementation("com.github.ajalt.clikt:clikt:4.4.0")
+    implementation("org.apache.commons:commons-csv:1.9.0")
+    implementation("commons-codec:commons-codec:1.14")
+    implementation("com.machinezoo.sourceafis:sourceafis:3.18.1")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
