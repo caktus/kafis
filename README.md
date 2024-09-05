@@ -65,6 +65,8 @@ $ ./kafis --help
 
 Caktus Consulting Group, LLC
 
+Thanks to [@lreimer](https://github.com/lreimer) for the [hands-on-clikt](https://github.com/lreimer/hands-on-clikt) template used to start this repository.
+
 ## License
 
 This software is provided under the MIT open source license, read the `LICENSE`
