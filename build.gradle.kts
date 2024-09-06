@@ -11,6 +11,7 @@ repositories {
 dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation("org.slf4j:slf4j-nop:2.0.16")
 
     implementation("com.github.ajalt.clikt:clikt:4.4.0")
     implementation("org.apache.commons:commons-csv:1.9.0")
