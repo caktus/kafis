@@ -57,15 +57,14 @@ class Hello : CliktCommand() {
 
     private fun <A> uniqueCombinations(
         lst: List<A>
-    ): Sequence<Pair<A, List<A>>> =
+    ): Sequence<Pair<A, List<A>>> {
         // Adapted from: https://stackoverflow.com/a/59144418/166053
-        sequence {
-            lst.forEachIndexed { i, v ->
-                val subLst = lst.subList(i + 1, lst.size)
-                if (subLst.isNotEmpty())
-                    yield(Pair(v, subLst))
-            }
+        return lst.asSequence().mapIndexed { i, v ->
+            Pair(v, lst.subList(i + 1, lst.size))
+        }.filter { (_, subLst) ->
+            subLst.isNotEmpty()
         }
+    }
 
     private fun readCsv(): Sequence<Map<String, String>> {
         val file = File(fileName)
@@ -119,10 +118,11 @@ class Hello : CliktCommand() {
         System.err.println("subjectLimit: $subjectLimit")
         System.err.println("outputScoreLimit: $outputScoreLimit")
         val (combinations, loadTimeTaken) = measureTimedValue {
-            val thumbprints = getThumbprints().let {
+            getThumbprints().let {
                 if (subjectLimit > 0) it.take(subjectLimit) else it
-            }.toList()
-            uniqueCombinations(thumbprints).toList()
+            }.toList().let {
+                uniqueCombinations(it).toList()
+            }
         }
         val size = combinations.map { (_, candidates) -> candidates.size.toLong() }.sum()
         System.err.println("Loaded $size subjects in $loadTimeTaken")
@@ -138,7 +138,7 @@ class Hello : CliktCommand() {
                 future.get() ?: 0L
             }.sum() // sum of candidate counts for all subjects
         }
-        val matchRate = (size / matchTimeTaken.inWholeSeconds).toInt()
+        val matchRate = ((size.toDouble() / matchTimeTaken.inWholeMilliseconds.toDouble()) * 1000.0).toInt()
         System.err.println("Matched $totalMatches subjects in $matchTimeTaken ($matchRate / sec)")
         if (totalMatches != size)
             System.err.println("WARNING: Matched $totalMatches but expected $size")
