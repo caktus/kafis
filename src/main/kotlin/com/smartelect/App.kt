@@ -95,7 +95,7 @@ class Hello : CliktCommand() {
     private fun matchSingleSubject(
         subject: ThumbprintPair,
         candidates: List<ThumbprintPair>
-    ) {
+    ): Long {
         val leftMatcher = FingerprintMatcher().index(convert(subject.left_thumbprint_scan))
         val rightMatcher = FingerprintMatcher().index(convert(subject.right_thumbprint_scan))
         for (candidate in candidates) {
@@ -104,6 +104,7 @@ class Hello : CliktCommand() {
             if (leftScore > outputScoreLimit || rightScore > outputScoreLimit)
                 println("${subject.entity_uuid},${candidate.entity_uuid},$leftScore,$rightScore")
         }
+        return candidates.size.toLong()
     }
 
     @ExperimentalTime
@@ -121,27 +122,30 @@ class Hello : CliktCommand() {
         val workerPool: ExecutorService = Executors.newFixedThreadPool(threadCount, CustomThreadFactory())
         val combinations = uniqueCombinations(thumbprints).toList()
         val size = combinations.map({ it.second.size.toLong() }).sum()
-        val futures: MutableCollection<Future<*>> = LinkedList()
+        val futures: MutableCollection<Future<Long>> = LinkedList()
         System.err.println("pairs to match: $size")
 
         println("subject_entity_uuid,candidate_entity_uuid,left_score,right_score")
+        var totalMatches = 0L
         val timeTaken = measureTime {
             for ((subject, candidates) in combinations) {
                 futures.add(
-                    workerPool.submit {
+                    workerPool.submit<Long> {
                         matchSingleSubject(subject, candidates)
                     }
                 )
             }
             // Wait for all tasks to complete
-            for (future in futures) {
-                future.get()
+            totalMatches = futures.sumOf { future ->
+                future.get() ?: 0L
             }
             workerPool.shutdown()
             workerPool.awaitTermination(60L, java.util.concurrent.TimeUnit.MINUTES)
         }
         val rate = (size / timeTaken.inWholeSeconds).toInt()
-        System.err.println("Matched $size pairs in $timeTaken ($rate / sec)")
+        System.err.println("Matched $totalMatches pairs in $timeTaken ($rate / sec)")
+        if (totalMatches != size)
+            System.err.println("WARNING: Matched $totalMatches but expected $size")
     }
 }
 
