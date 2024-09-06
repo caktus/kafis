@@ -15,6 +15,7 @@ dependencies {
 
     implementation("com.github.ajalt.clikt:clikt:4.4.0")
     implementation("org.apache.commons:commons-csv:1.9.0")
+    implementation("commons-io:commons-io:2.6")
     implementation("commons-codec:commons-codec:1.14")
     implementation("com.machinezoo.sourceafis:sourceafis:3.18.1")
 
@@ -46,6 +47,7 @@ tasks.getByName("assemble").finalizedBy(copyRuntimeLibs)
 
 fun getClasspath() = "libs/" + file("$buildDir/libs").list()?.joinToString(":libs/")
 
+// Build native image using GraalVM
 task<Exec>("buildNativeImage") {
     description = "Build native image using GraalVM"
     dependsOn(tasks.getByName("build"))
@@ -65,4 +67,16 @@ task<Exec>("buildNativeImage") {
         "com.smartelect.AppKt",
         "kafis"
     )
+}
+
+// Create a fat jar for distribution
+tasks.register<Jar>("uberJar") {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    from(sourceSets.main.get().output)
+
+    dependsOn(configurations.runtimeClasspath)
+    from({
+        configurations.runtimeClasspath.get().filter { it.name.endsWith("jar") }.map { zipTree(it) }
+    })
 }

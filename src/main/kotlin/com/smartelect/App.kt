@@ -50,11 +50,12 @@ class CustomThreadFactory : ThreadFactory {
 }
 
 class Hello : CliktCommand() {
-    val fileName: String by option(help = "Path to CSV file with fingerprints").required()
-    val threadCount: Int by option(help = "Number of threads to start").int().default(1)
-    val subjectLimit: Int by option(help = "Compare only this number of subjects to each other").int().default(0)
-    val outputScoreLimit: Int by option(help = "Only display scores larger than this value").int().default(-1)
+    private val fileName: String by option(help = "Path to CSV file with fingerprints").required()
+    private val threadCount: Int by option(help = "Number of threads to start").int().default(1)
+    private val subjectLimit: Int by option(help = "Compare only this number of subjects to each other").int().default(0)
+    private val outputScoreLimit: Int by option(help = "Only display scores larger than this value").int().default(-1)
 
+    // Generate unique combinations of pairs in a list
     private fun <A> uniqueCombinations(
         lst: List<A>
     ): Sequence<Pair<A, List<A>>> {
@@ -66,6 +67,7 @@ class Hello : CliktCommand() {
         }
     }
 
+    // Use CSVParser to read the file
     private fun readCsv(): Sequence<Map<String, String>> {
         val file = File(fileName)
         val reader = Files.newBufferedReader(Paths.get(file.toURI()))
@@ -73,6 +75,7 @@ class Hello : CliktCommand() {
         return csvParser.asSequence().map { it.toMap() }
     }
 
+    // Perform the match and handle exceptions
     private fun performMatch(matcher: FingerprintMatcher, candidate: FingerprintTemplate): Double {
         try {
             return matcher.match(candidate)
@@ -82,6 +85,7 @@ class Hello : CliktCommand() {
         }
     }
 
+    // Extract thumbprints from CSV file
     private fun getThumbprints(): Sequence<ThumbprintPair> {
         return readCsv().filter {
             // TODO: Allow one or the other to be empty and handle appropriately in matchSingleSubject
@@ -96,10 +100,12 @@ class Hello : CliktCommand() {
         }
     }
 
+    // Match a single subject against all candidate templates
     private fun matchSingleSubject(
         subject: ThumbprintPair,
         candidates: List<ThumbprintPair>
     ): Long {
+        // Create matchers for left and right thumbprints
         val leftMatcher = FingerprintMatcher(subject.left_thumbprint_scan)
         val rightMatcher = FingerprintMatcher(subject.right_thumbprint_scan)
         for (candidate in candidates) {
@@ -117,6 +123,8 @@ class Hello : CliktCommand() {
         System.err.println("threadCount: $threadCount")
         System.err.println("subjectLimit: $subjectLimit")
         System.err.println("outputScoreLimit: $outputScoreLimit")
+
+        // Permute list of unique fingerprint template combinations
         val (combinations, loadTimeTaken) = measureTimedValue {
             getThumbprints().let {
                 if (subjectLimit > 0) it.take(subjectLimit) else it
@@ -124,9 +132,10 @@ class Hello : CliktCommand() {
                 uniqueCombinations(it).toList()
             }
         }
-        val size = combinations.map { (_, candidates) -> candidates.size.toLong() }.sum()
+        val size = combinations.sumOf { (_, candidates) -> candidates.size.toLong() }
         System.err.println("Loaded $size subjects in $loadTimeTaken")
 
+        // Create a thread pool to process the matching calculations in parallel
         val workerPool: ExecutorService = Executors.newFixedThreadPool(threadCount, CustomThreadFactory())
         println("subject_entity_uuid,candidate_entity_uuid,left_score,right_score")
         val (totalMatches, matchTimeTaken) = measureTimedValue {
@@ -134,9 +143,9 @@ class Hello : CliktCommand() {
                 workerPool.submit<Long> {
                     matchSingleSubject(subject, candidates)
                 }
-            }.map { future ->
+            }.sumOf { future ->
                 future.get() ?: 0L
-            }.sum() // sum of candidate counts for all subjects
+            } // sum of candidate counts for all subjects
         }
         val matchRate = ((size.toDouble() / matchTimeTaken.inWholeMilliseconds.toDouble()) * 1000.0).toInt()
         System.err.println("Matched $totalMatches subjects in $matchTimeTaken ($matchRate / sec)")

@@ -29,8 +29,8 @@ If you don't need to compile a native binary, you can use Jabba as a JVM manager
 
 ```shell
 # use Jabba to install GraalVM
-$ jabba ls-remote | grep graalvm | grep 21
-$ jabba install graalvm-ce-java16@21.1.0
+jabba ls-remote | grep graalvm | grep 21
+jabba install graalvm-ce-java16@21.1.0
 ```
 
 Add to `.envrc` and run `direnv allow` to set the environment variables:
@@ -45,20 +45,33 @@ export GRAALVM_HOME=$JAVA_HOME
 #### Install the `native-image` command
 Install the `native-image` utility using the Graal updater.
 ```shell
-$ gu available
-$ gu install native-image
+gu available
+gu install native-image
 ```
 
 ## 2. Building and using CLI
 
+### Running with Gradle
 ```shell
-$ ./gradlew build
-$ ./gradlew buildNativeImage
+./gradlew clean
+./gradlew build
+./run.sh --file-name=thumbprints.csv --thread-count=14 --output-score-limit=40 --subject-limit=1000
+```
 
-$ cd build/
-$ ./kafis
-$ ./kafis --name Leander --count 3
-$ ./kafis --help
+### Building an uber jar
+```shell
+./gradlew clean
+./gradlew uberJar
+java -cp build/libs/kafis.jar com.smartelect.AppKt --file-name=thumbprints.csv --thread-count=14 --output-score-limit=40 --subject-limit=1000
+```
+
+### Building a native image (not yet supported)
+```shell
+./gradlew build
+./gradlew buildNativeImage
+
+cd build/
+./kafis --file-name=thumbprints.csv --thread-count=14 --output-score-limit=40
 ```
 
 ## Maintainer
