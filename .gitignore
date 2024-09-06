@@ -1,4 +1,5 @@
 .envrc
+.direnv/
 .idea/
 .gradle
 /build/

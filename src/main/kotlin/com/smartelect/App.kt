@@ -5,6 +5,7 @@ import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.int
 import com.machinezoo.sourceafis.FingerprintCompatibility.convert
 import com.machinezoo.sourceafis.FingerprintMatcher
+import com.machinezoo.fingerprintio.TemplateFormatException
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
@@ -14,6 +15,8 @@ import java.nio.file.Paths
 import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.ThreadFactory
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 
@@ -32,10 +35,23 @@ data class ThumbprintPair(
     val left_thumbprint_scan: ByteArray
 )
 
+// Custom ThreadFactory to set UncaughtExceptionHandler
+class CustomThreadFactory : ThreadFactory {
+    override fun newThread(r: Runnable): Thread {
+        val thread = Thread(r)
+        thread.uncaughtExceptionHandler = Thread.UncaughtExceptionHandler { t, e ->
+            System.err.println("Exception in thread ${t.name}: ${e.message}")
+            e.printStackTrace(System.err)
+        }
+        return thread
+    }
+}
+
 class Hello : CliktCommand() {
     val fileName: String by option(help = "Path to CSV file with fingerprints").required()
     val threadCount: Int by option(help = "Number of threads to start").int().default(1)
-    val limit: Int by option(help="Compare only this number of subjects to each other").int().default(0)
+    val subjectLimit: Int by option(help = "Compare only this number of subjects to each other").int().default(0)
+    val outputScoreLimit: Int by option(help = "Only display scores larger than this value").int().default(-1)
 
     private fun <A> uniqueCombinations(
         lst: List<A>
@@ -57,7 +73,12 @@ class Hello : CliktCommand() {
     }
 
     private fun performMatch(matcher: FingerprintMatcher, candidate: ByteArray): Double {
-        return matcher.match(convert(candidate))
+        try {
+            return matcher.match(convert(candidate))
+        } catch (e: TemplateFormatException) {
+            System.err.println("match failure: $e (candidate: ${candidate})")
+            return -1.0
+        }
     }
 
     private fun getThumbprints(): Sequence<ThumbprintPair> {
@@ -77,12 +98,11 @@ class Hello : CliktCommand() {
     ) {
         val leftMatcher = FingerprintMatcher().index(convert(subject.left_thumbprint_scan))
         val rightMatcher = FingerprintMatcher().index(convert(subject.right_thumbprint_scan))
-
         for (candidate in candidates) {
             val leftScore = performMatch(leftMatcher, candidate.left_thumbprint_scan)
             val rightScore = performMatch(rightMatcher, candidate.right_thumbprint_scan)
-            if (leftScore > 40 || rightScore > 40)
-                println("$leftScore,$rightScore")
+            if (leftScore > outputScoreLimit || rightScore > outputScoreLimit)
+                println("${subject.entity_uuid},${candidate.entity_uuid},$leftScore,$rightScore")
         }
     }
 
@@ -90,21 +110,32 @@ class Hello : CliktCommand() {
     override fun run() {
         System.err.println("fileName: $fileName")
         System.err.println("threadCount: $threadCount")
-        System.err.println("limit: $limit")
-        val thumbprints = if (limit > 0) {
-            getThumbprints().take(limit).toList()
-        } else {
-            getThumbprints().toList()
-        }
-        val workerPool: ExecutorService = Executors.newFixedThreadPool(threadCount)
+        System.err.println("subjectLimit: $subjectLimit")
+        System.err.println("outputScoreLimit: $outputScoreLimit")
+        // TODO: Allow one or the other to be empty and handle appropriately in matchSingleSubject
+        val thumbprints = getThumbprints().filter {
+            it.left_thumbprint_scan.isNotEmpty() && it.right_thumbprint_scan.isNotEmpty()
+        }.let {
+            if (subjectLimit > 0) it.take(subjectLimit) else it
+        }.toList()
+        val workerPool: ExecutorService = Executors.newFixedThreadPool(threadCount, CustomThreadFactory())
         val combinations = uniqueCombinations(thumbprints).toList()
         val size = combinations.map({ it.second.size.toLong() }).sum()
+        val futures: MutableCollection<Future<*>> = LinkedList()
+        System.err.println("pairs to match: $size")
 
+        println("subject_entity_uuid,candidate_entity_uuid,left_score,right_score")
         val timeTaken = measureTime {
             for ((subject, candidates) in combinations) {
-                workerPool.submit {
-                    matchSingleSubject(subject, candidates)
-                }
+                futures.add(
+                    workerPool.submit {
+                        matchSingleSubject(subject, candidates)
+                    }
+                )
+            }
+            // Wait for all tasks to complete
+            for (future in futures) {
+                future.get()
             }
             workerPool.shutdown()
             workerPool.awaitTermination(60L, java.util.concurrent.TimeUnit.MINUTES)
