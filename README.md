@@ -74,6 +74,20 @@ cd build/
 ./kafis --file-name=thumbprints.csv --thread-count=14 --output-score-limit=40
 ```
 
+## Docker image
+
+```shell
+docker build . -t kafis:latest
+docker run \
+  --mount=type=bind,source=${PWD}/thumbprints.csv,target=/app/thumbprints.csv \
+  kafis:latest -- \
+  java -cp /app/kafis.jar com.smartelect.AppKt \
+  --file-name=/app/thumbprints.csv \
+  --thread-count=14 \
+  --output-score-limit=40 \
+  --subject-limit=2000
+```
+
 ## Maintainer
 
 Caktus Consulting Group, LLC
