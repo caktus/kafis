@@ -1,11 +1,13 @@
 package com.smartelect
 
 import com.github.ajalt.clikt.core.CliktCommand
-import com.github.ajalt.clikt.parameters.options.*
+import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.int
+import com.machinezoo.fingerprintio.TemplateFormatException
 import com.machinezoo.sourceafis.FingerprintCompatibility.convert
 import com.machinezoo.sourceafis.FingerprintMatcher
-import com.machinezoo.fingerprintio.TemplateFormatException
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
@@ -76,7 +78,7 @@ class Hello : CliktCommand() {
         try {
             return matcher.match(convert(candidate))
         } catch (e: TemplateFormatException) {
-            System.err.println("match failure: $e (candidate: ${candidate})")
+            System.err.println("match failure: $e (candidate: $candidate)")
             return -1.0
         }
     }
@@ -150,4 +152,3 @@ class Hello : CliktCommand() {
 }
 
 fun main(args: Array<String>) = Hello().main(args)
-
