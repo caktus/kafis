@@ -15,14 +15,12 @@ import org.apache.commons.csv.CSVParser
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
-import java.util.LinkedList
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.Future
 import java.util.concurrent.ThreadFactory
 import kotlin.time.ExperimentalTime
-import kotlin.time.measureTime
+import kotlin.time.measureTimedValue
 
 class App {
     // TODO: What does this do?
@@ -87,6 +85,7 @@ class Hello : CliktCommand() {
 
     private fun getThumbprints(): Sequence<ThumbprintPair> {
         return readCsv().filter {
+            // TODO: Allow one or the other to be empty and handle appropriately in matchSingleSubject
             it["left_thumbprint_scan"]?.isNotEmpty() == true && it["right_thumbprint_scan"]?.isNotEmpty() == true
         }.map {
             ThumbprintPair(
@@ -119,37 +118,33 @@ class Hello : CliktCommand() {
         System.err.println("threadCount: $threadCount")
         System.err.println("subjectLimit: $subjectLimit")
         System.err.println("outputScoreLimit: $outputScoreLimit")
-        // TODO: Allow one or the other to be empty and handle appropriately in matchSingleSubject
-        val thumbprints = getThumbprints().let {
-            if (subjectLimit > 0) it.take(subjectLimit) else it
-        }.toList()
-        val workerPool: ExecutorService = Executors.newFixedThreadPool(threadCount, CustomThreadFactory())
-        val combinations = uniqueCombinations(thumbprints).toList()
-        val size = combinations.map({ it.second.size.toLong() }).sum()
-        val futures: MutableCollection<Future<Long>> = LinkedList()
-        System.err.println("pairs to match: $size")
-
-        println("subject_entity_uuid,candidate_entity_uuid,left_score,right_score")
-        var totalMatches = 0L
-        val timeTaken = measureTime {
-            for ((subject, candidates) in combinations) {
-                futures.add(
-                    workerPool.submit<Long> {
-                        matchSingleSubject(subject, candidates)
-                    }
-                )
-            }
-            // Wait for all tasks to complete
-            totalMatches = futures.sumOf { future ->
-                future.get() ?: 0L
-            }
-            workerPool.shutdown()
-            workerPool.awaitTermination(60L, java.util.concurrent.TimeUnit.MINUTES)
+        val (combinations, loadTimeTaken) = measureTimedValue {
+            val thumbprints = getThumbprints().let {
+                if (subjectLimit > 0) it.take(subjectLimit) else it
+            }.toList()
+            uniqueCombinations(thumbprints).toList()
         }
-        val rate = (size / timeTaken.inWholeSeconds).toInt()
-        System.err.println("Matched $totalMatches pairs in $timeTaken ($rate / sec)")
+        val size = combinations.map { (_, candidates) -> candidates.size.toLong() }.sum()
+        System.err.println("Loaded $size subjects in $loadTimeTaken")
+
+        val workerPool: ExecutorService = Executors.newFixedThreadPool(threadCount, CustomThreadFactory())
+        println("subject_entity_uuid,candidate_entity_uuid,left_score,right_score")
+        val (totalMatches, matchTimeTaken) = measureTimedValue {
+            combinations.map { (subject, candidates) ->
+                workerPool.submit<Long> {
+                    matchSingleSubject(subject, candidates)
+                }
+            }.map { future ->
+                future.get() ?: 0L
+            }.sum() // sum of candidate counts for all subjects
+        }
+        val matchRate = (size / matchTimeTaken.inWholeSeconds).toInt()
+        System.err.println("Matched $totalMatches subjects in $matchTimeTaken ($matchRate / sec)")
         if (totalMatches != size)
             System.err.println("WARNING: Matched $totalMatches but expected $size")
+
+        workerPool.shutdown()
+        workerPool.awaitTermination(30L, java.util.concurrent.TimeUnit.SECONDS)
     }
 }
 
