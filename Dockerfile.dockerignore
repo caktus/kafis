@@ -1,0 +1,11 @@
+.envrc
+.direnv/
+.git/
+.github/
+.gradle
+.idea/
+Dockerfile
+build/
+README.md
+*.csv
+*.txt
