@@ -31,10 +31,10 @@ class App {
 }
 
 data class ThumbprintPair(
-    val entity_uuid: UUID,
-    val center_id: Int,
-    val right_thumbprint_scan: FingerprintTemplate,
-    val left_thumbprint_scan: FingerprintTemplate
+    val entityUuid: UUID,
+    val groupId: String,
+    val rightThumbprintScan: FingerprintTemplate,
+    val leftThumbprintScan: FingerprintTemplate
 )
 
 // Custom ThreadFactory to set UncaughtExceptionHandler
@@ -93,7 +93,7 @@ class Hello : CliktCommand() {
         }.map {
             ThumbprintPair(
                 UUID.fromString(it["entity_uuid"]),
-                it["center_id"]!!.toInt(),
+                it["group_id"]!!,
                 importTemplate(Hex.decodeHex(it["right_thumbprint_scan"]!!)),
                 importTemplate(Hex.decodeHex(it["left_thumbprint_scan"]!!))
             )
@@ -106,13 +106,13 @@ class Hello : CliktCommand() {
         candidates: List<ThumbprintPair>
     ): Long {
         // Create matchers for left and right thumbprints
-        val leftMatcher = FingerprintMatcher(subject.left_thumbprint_scan)
-        val rightMatcher = FingerprintMatcher(subject.right_thumbprint_scan)
+        val leftMatcher = FingerprintMatcher(subject.leftThumbprintScan)
+        val rightMatcher = FingerprintMatcher(subject.rightThumbprintScan)
         for (candidate in candidates) {
-            val leftScore = performMatch(leftMatcher, candidate.left_thumbprint_scan)
-            val rightScore = performMatch(rightMatcher, candidate.right_thumbprint_scan)
+            val leftScore = performMatch(leftMatcher, candidate.leftThumbprintScan)
+            val rightScore = performMatch(rightMatcher, candidate.rightThumbprintScan)
             if (leftScore > outputScoreLimit || rightScore > outputScoreLimit)
-                println("${subject.entity_uuid},${candidate.entity_uuid},$leftScore,$rightScore")
+                println("${subject.entityUuid},${subject.groupId},${candidate.entityUuid},${candidate.groupId},$leftScore,$rightScore")
         }
         return candidates.size.toLong()
     }
@@ -137,7 +137,7 @@ class Hello : CliktCommand() {
 
         // Create a thread pool to process the matching calculations in parallel
         val workerPool: ExecutorService = Executors.newFixedThreadPool(threadCount, CustomThreadFactory())
-        println("subject_entity_uuid,candidate_entity_uuid,left_score,right_score")
+        println("subject_entity_uuid,subject_group_id,candidate_entity_uuid,candidate_group_id,left_score,right_score")
         val (totalMatches, matchTimeTaken) = measureTimedValue {
             combinations.map { (subject, candidates) ->
                 workerPool.submit<Long> {
